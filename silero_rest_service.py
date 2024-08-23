@@ -2,7 +2,6 @@ from fastapi import FastAPI, HTTPException
 from starlette.responses import Response
 import uvicorn
 import torch
-from rupo.stress.predictor import StressPredictor
 from ruaccent import RUAccent
 
 app = FastAPI()
@@ -10,11 +9,11 @@ app = FastAPI()
 version = "1.0"
 model = None
 accentizer = None
-stress_predictor = None
+
 
 @app.on_event("startup")
 async def startup_event():
-    global model, accentizer, stress_predictor
+    global model, accentizer
     modelurl = 'https://models.silero.ai/models/tts/ru/v4_ru.pt'
 
     device = torch.device('cpu')
@@ -39,13 +38,6 @@ async def startup_event():
         print("RUAccent model loaded successfully")
     except Exception as e:
         print(f"Failed to load RUAccent model: {e}")
-
-    try:
-        stress_predictor = StressPredictor()
-        stress_predictor.load()
-        print("Rupo Stress Predictor loaded successfully")
-    except Exception as e:
-        print(f"Failed to load Rupo Stress Predictor: {e}")
 
 @app.get(
     "/getwav",
