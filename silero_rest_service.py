@@ -1,24 +1,20 @@
 from fastapi import FastAPI, HTTPException
 from starlette.responses import Response
 import uvicorn
-import multiprocessing
-import os
 import torch
+from rupo.stress.predictor import StressPredictor
 from ruaccent import RUAccent
-from num2words import num2words
-import re
+
+app = FastAPI()
 
 version = "1.0"
 model = None
 accentizer = None
-
-# Инициализация FastAPI приложения
-app = FastAPI()
-
+stress_predictor = None
 
 @app.on_event("startup")
 async def startup_event():
-    global model, accentizer
+    global model, accentizer, stress_predictor
     modelurl = 'https://models.silero.ai/models/tts/ru/v4_ru.pt'
 
     device = torch.device('cpu')
@@ -32,62 +28,44 @@ async def startup_event():
     try:
         model = torch.package.PackageImporter(local_file).load_pickle("tts_models", "model")
         model.to(device)
-        print("Model loaded successfully")
+        print("TTS Model loaded successfully")
     except Exception as e:
-        print(f"Failed to load model: {e}")
+        print(f"Failed to load TTS model: {e}")
         model = None
 
-    # Инициализация RUAccent
-    accentizer = RUAccent()
-    accentizer.load(omograph_model_size='turbo', use_dictionary=True)
+    try:
+        accentizer = RUAccent()
+        accentizer.load(omograph_model_size='turbo', use_dictionary=True)
+        print("RUAccent model loaded successfully")
+    except Exception as e:
+        print(f"Failed to load RUAccent model: {e}")
 
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    global model
-    model = None
-    print("Model unloaded")
-
-
-def replace_numbers_with_words(text):
-    def convert(match):
-        return num2words(int(match.group()), lang='ru')
-
-    # Заменяем все числа в тексте на их словесное представление
-    return re.sub(r'\d+', convert, text)
-
+    try:
+        stress_predictor = StressPredictor()
+        stress_predictor.load()
+        print("Rupo Stress Predictor loaded successfully")
+    except Exception as e:
+        print(f"Failed to load Rupo Stress Predictor: {e}")
 
 @app.get(
     "/getwav",
-    responses={
-        200: {
-            "content": {"audio/wav": {}}
-        }
-    },
+    responses={200: {"content": {"audio/wav": {}}}},
     response_class=Response
 )
-async def getwav(text_to_speech: str, speaker: str = "xenia", sample_rate: int = 24000, apply_accent: bool = False):
-    """
-    Возвращает WAV файл с синтезированным текстом
-    """
+async def getwav(text_to_speech: str, speaker: str = "xenia", sample_rate: int = 24000):
     if model is None:
-        raise HTTPException(status_code=500, detail="Model is not loaded")
-
-    # Преобразуем числа в текст
-    text_to_speech = replace_numbers_with_words(text_to_speech)
-
-    if apply_accent:
-        text_to_speech = accentizer.process_all(text_to_speech)
-
-    path = model.save_wav(text=text_to_speech, speaker=speaker, sample_rate=sample_rate)
-
+        raise HTTPException(status_code=500, detail="TTS model is not loaded")
+    
+    accented_text = accentizer.process_all(text_to_speech) if accentizer else text_to_speech
+    print(f"Text after accent processing: {accented_text}")
+    
+    wavfile = "temp.wav"
+    path = model.save_wav(text=accented_text, speaker=speaker, sample_rate=sample_rate)
+    
     with open(path, "rb") as in_file:
         data = in_file.read()
-
+    
     return Response(content=data, media_type="audio/wav")
 
-
 if __name__ == "__main__":
-    multiprocessing.freeze_support()
-    print(f"Running silero_rest_service server v{version}...")
-    uvicorn.run("silero_rest_service:app", host="0.0.0.0", port=5010, log_level="info")
+    uvicorn.run("silero_rest_service:app", host="0.0.0.0", port=8000, log_level="info")
