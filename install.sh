@@ -1,38 +1,44 @@
 #!/bin/bash
 
-# Обновление и установка необходимых пакетов
-sudo apt-get update
-sudo apt-get install -y python3 python3-venv python3-pip
+# Название для новой conda-среды
+ENV_NAME="silero_rest_env"
+CONDA_INSTALLER="Miniconda3-latest-Linux-x86_64.sh"
+CONDA_URL="https://repo.anaconda.com/miniconda/$CONDA_INSTALLER"
 
-# Создание и активация виртуального окружения
-python3 -m venv venv
-source venv/bin/activate
+# Проверяем, установлен ли conda
+if ! command -v conda &> /dev/null; then
+    echo "Conda не установлен. Устанавливаем Miniconda..."
 
-# Установка зависимостей
-pip install --upgrade pip
-pip install -r requirements.txt
+    # Скачиваем Miniconda установщик
+    wget $CONDA_URL -O $CONDA_INSTALLER
 
-# Создание systemd сервиса
-SERVICE_FILE=/etc/systemd/system/silero_rest_service.service
+    # Устанавливаем Miniconda в автоматическом режиме (без запроса подтверждений у пользователя)
+    bash $CONDA_INSTALLER -b
 
-sudo bash -c "cat > $SERVICE_FILE" << EOF
-[Unit]
-Description=Silero REST Service
-After=network.target
+    # Добавляем conda в PATH
+    export PATH="$HOME/miniconda3/bin:$PATH"
 
-[Service]
-User=$USER
-WorkingDirectory=$(pwd)
-ExecStart=$(pwd)/venv/bin/uvicorn silero_rest_service:app --host 0.0.0.0 --port 5010
-Restart=always
+    # Инициализируем conda
+    source "$HOME/miniconda3/bin/activate"
 
-[Install]
-WantedBy=multi-user.target
-EOF
+    # Удаляем установочный файл
+    rm $CONDA_INSTALLER
 
-# Перезагрузка systemd, включение и запуск сервиса
-sudo systemctl daemon-reload
-sudo systemctl enable silero_rest_service.service
-sudo systemctl start silero_rest_service.service
+    echo "Miniconda установлена."
+else
+    echo "Conda уже установлена."
+fi
 
-echo "Установка завершена. Сервис запущен и будет автоматически стартовать при загрузке системы."
+# Создаем новую conda-среду с Python 3.12
+conda create -n $ENV_NAME python=3.12 -y
+
+# Активируем созданную среду
+source activate $ENV_NAME
+
+# Устанавливаем зависимости через pip в активированной conda-среде
+pip install fastapi uvicorn torch ruaccent rupo
+
+# Дополнительно, можно установить пакеты через conda, если они доступны
+# Например, conda install pytorch torchvision torchaudio cpuonly -c pytorch
+
+echo "Conda environment '$ENV_NAME' создана и все зависимости установлены."
