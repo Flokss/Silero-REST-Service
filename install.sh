@@ -58,7 +58,7 @@ After=network.target
 Type=simple
 User=$(whoami)
 WorkingDirectory=$PROJECT_DIR
-ExecStart=$HOME/miniconda3/envs/$ENV_NAME/bin/uvicorn silero_rest_service:app --host 0.0.0.0 --port 8000
+ExecStart=$HOME/miniconda3/envs/$ENV_NAME/bin/uvicorn silero_rest_service:app --host 0.0.0.0 --port 5010
 Restart=always
 
 [Install]
