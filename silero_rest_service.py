@@ -3,7 +3,7 @@ from starlette.responses import Response
 import uvicorn
 import torch
 from ruaccent import RUAccent
-
+import os
 app = FastAPI()
 
 version = "1.0"
@@ -60,4 +60,4 @@ async def getwav(text_to_speech: str, speaker: str = "xenia", sample_rate: int =
     return Response(content=data, media_type="audio/wav")
 
 if __name__ == "__main__":
-    uvicorn.run("silero_rest_service:app", host="0.0.0.0", port=8000, log_level="info")
+    uvicorn.run("silero_rest_service:app", host="0.0.0.0", port=5010, log_level="info")
