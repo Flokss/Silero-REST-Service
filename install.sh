@@ -39,7 +39,7 @@ conda create -n $ENV_NAME python=3.12 -y
 source activate $ENV_NAME
 
 # Устанавливаем зависимости через pip в активированной conda-среде
-pip install fastapi uvicorn torch ruaccent rupo
+pip install fastapi uvicorn torch ruaccent
 
 # Дополнительно, можно установить пакеты через conda, если они доступны
 # Например, conda install pytorch torchvision torchaudio cpuonly -c pytorch
