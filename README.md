@@ -19,4 +19,9 @@ Python: Основной язык разработки.
 Пример использования:
 После запуска сервиса, вы можете отправить HTTP GET запрос на /getwav с параметрами text_to_speech (текст для синтеза), speaker (выбор диктора), и sample_rate (частота дискретизации). В ответ вы получите аудиофайл формата WAV с синтезированным текстом.
 
+Установка 
+git clone https://github.com/Flokss/Silero-REST-Service.git
+cd Silero-REST-Service
+chmod +x install.sh
+./install.sh
 
