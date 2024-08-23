@@ -4,6 +4,9 @@
 ENV_NAME="silero_rest_env"
 CONDA_INSTALLER="Miniconda3-latest-Linux-x86_64.sh"
 CONDA_URL="https://repo.anaconda.com/miniconda/$CONDA_INSTALLER"
+SERVICE_NAME="silero_rest_service"
+SERVICE_PATH="/etc/systemd/system/$SERVICE_NAME.service"
+PROJECT_DIR="$HOME/Silero-REST-Service"
 
 # Проверяем, установлен ли conda
 if ! command -v conda &> /dev/null; then
@@ -42,3 +45,30 @@ pip install fastapi uvicorn torch ruaccent rupo
 # Например, conda install pytorch torchvision torchaudio cpuonly -c pytorch
 
 echo "Conda environment '$ENV_NAME' создана и все зависимости установлены."
+
+# Создаем юнит для службы systemd
+echo "Создаем юнит для службы systemd..."
+
+sudo bash -c "cat > $SERVICE_PATH" <<EOL
+[Unit]
+Description=Silero REST Service
+After=network.target
+
+[Service]
+Type=simple
+User=$(whoami)
+WorkingDirectory=$PROJECT_DIR
+ExecStart=$HOME/miniconda3/envs/$ENV_NAME/bin/uvicorn silero_rest_service:app --host 0.0.0.0 --port 8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOL
+
+# Перезагружаем systemd и запускаем сервис
+echo "Перезагружаем systemd и запускаем сервис..."
+sudo systemctl daemon-reload
+sudo systemctl enable $SERVICE_NAME
+sudo systemctl start $SERVICE_NAME
+
+echo "Служба $SERVICE_NAME создана и запущена."
