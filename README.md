@@ -32,9 +32,9 @@ chmod +x install.sh
 ## Пример использования
 **После запуска сервиса, по умолчанию он будет доступен на порту 5010. Вы можете отправить HTTP GET запрос на /getwav с параметрами:
 
--** text_to_speech: Текст для синтеза.
--** speaker: Выбор диктора.
--** sample_rate: Частота дискретизации.
+- **text_to_speech: Текст для синтеза.
+- **speaker: Выбор диктора.
+- **sample_rate: Частота дискретизации.
 
 ### Пример запроса
 GET http://localhost:5010/getwav?text_to_speech=Привет%2C%20мир!&speaker=aidar&sample_rate=48000
