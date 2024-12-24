@@ -4,6 +4,8 @@ import uvicorn
 import torch
 from ruaccent import RUAccent
 import os
+from num2words import num2words  # Библиотека для преобразования чисел в слова
+
 app = FastAPI()
 
 version = "1.0"
@@ -39,6 +41,21 @@ async def startup_event():
     except Exception as e:
         print(f"Failed to load RUAccent model: {e}")
 
+
+def preprocess_text(text):
+    """Преобразует цифры в текстовый формат."""
+    words = text.split()
+    processed_words = []
+    for word in words:
+        if word.isdigit():
+            try:
+                word = num2words(int(word), lang='ru')
+            except Exception as e:
+                print(f"Failed to convert number {word} to words: {e}")
+        processed_words.append(word)
+    return " ".join(processed_words)
+
+
 @app.get(
     "/getwav",
     responses={200: {"content": {"audio/wav": {}}}},
@@ -48,7 +65,8 @@ async def getwav(text_to_speech: str, speaker: str = "xenia", sample_rate: int =
     if model is None:
         raise HTTPException(status_code=500, detail="TTS model is not loaded")
     
-    accented_text = accentizer.process_all(text_to_speech) if accentizer else text_to_speech
+    preprocessed_text = preprocess_text(text_to_speech)
+    accented_text = accentizer.process_all(preprocessed_text) if accentizer else preprocessed_text
     print(f"Text after accent processing: {accented_text}")
     
     wavfile = "temp.wav"
