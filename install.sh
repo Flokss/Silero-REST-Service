@@ -1,95 +1,116 @@
 #!/bin/bash
 
-# Определение архитектуры системы
-ARCH=$(uname -m)
-if [ "$ARCH" = "x86_64" ]; then
-    CONDA_INSTALLER="Miniconda3-latest-Linux-x86_64.sh"
-elif [ "$ARCH" = "aarch64" ]; then
-    CONDA_INSTALLER="Miniconda3-latest-Linux-aarch64.sh"
-else
-    echo "❌ Неподдерживаемая архитектура: $ARCH"
+# Получаем информацию о пользователе
+CURRENT_USER=$(whoami)
+if [ "$CURRENT_USER" = "root" ]; then
+    echo "⚠️ Не рекомендуется запускать скрипт от имени root"
+    echo "🔧 Для безопасности используйте обычного пользователя с sudo-привилегиями"
+fi
+
+# Проверка наличия необходимых утилит
+if ! command -v python3 &> /dev/null; then
+    echo "❌ Python3 не установлен!"
+    echo "🔧 Попробуйте установить его с помощью: sudo apt update && sudo apt install python3"
     exit 1
 fi
 
-# Остальные переменные
-ENV_NAME="silero_rest_env"
-CONDA_URL="https://repo.anaconda.com/miniconda/$CONDA_INSTALLER"
-SERVICE_NAME="silero_rest_service"
-SERVICE_PATH="/etc/systemd/system/$SERVICE_NAME.service"
-PROJECT_DIR="$HOME/Silero-REST-Service"
-CONDA_PATH="$HOME/miniconda3"
-
-# Удаляем предыдущую установку Miniconda
-echo "🗑️ Удаляем предыдущую установку Miniconda (если существует)..."
-rm -rf $CONDA_PATH
-
-# Проверяем, установлен ли conda
-if ! command -v conda &> /dev/null; then
-    echo "📦 Conda не установлен. Устанавливаем Miniconda для $ARCH..."
-
-    # Скачиваем Miniconda установщик
-    if ! wget $CONDA_URL -O $CONDA_INSTALLER; then
-        echo "❌ Ошибка при скачивании Miniconda!"
-        exit 1
-    fi
-
-    # Устанавливаем Miniconda
-    if ! bash $CONDA_INSTALLER -b -p $CONDA_PATH; then
-        echo "❌ Ошибка установки Miniconda!"
-        exit 1
-    fi
-
-    # Инициализируем Conda
-    source $CONDA_PATH/bin/activate
-    conda init bash
-    source ~/.bashrc
-
-    # Удаляем установочный файл
-    rm $CONDA_INSTALLER
-
-    echo "✅ Miniconda успешно установлена"
-else
-    echo "ℹ️ Conda уже установлена"
+if ! command -v pip3 &> /dev/null; then
+    echo "❌ pip3 не установлен!"
+    echo "🔧 Попробуйте установить его с помощью: sudo apt install python3-pip"
+    exit 1
 fi
 
-# Обновляем PATH
-export PATH="$CONDA_PATH/bin:$PATH"
+# Проверка наличия модуля venv
+if ! python3 -c "import venv" &> /dev/null; then
+    echo "❌ Модуль venv не доступен!"
+    echo "🔧 Установите его с помощью: sudo apt install python3-venv"
+    exit 1
+fi
 
-# Создаем новое окружение
-echo "🛠️ Создаем окружение $ENV_NAME..."
-conda create -n $ENV_NAME python=3.12 -y
+# Определяем директории (явно указываем домашнюю директорию пользователя)
+HOME_DIR="/home/$CURRENT_USER"
+PROJECT_DIR="$HOME_DIR/Silero-REST-Service"
+VENV_PATH="$PROJECT_DIR/venv"
 
-# Активируем окружение
-echo "🔌 Активируем окружение..."
-conda activate $ENV_NAME
+# Отладочная информация
+echo "🔍 Текущий пользователь: $CURRENT_USER"
+echo "📁 Домашняя директория: $HOME_DIR"
+echo "📁 Проект будет установлен в: $PROJECT_DIR"
+
+# Удаляем старое виртуальное окружение (если существует)
+echo "🗑️ Удаляем предыдущее виртуальное окружение (если существует)..."
+rm -rf "$VENV_PATH"
+
+# Создаем директорию проекта
+mkdir -p "$PROJECT_DIR"
+
+# Переходим в директорию проекта
+cd "$PROJECT_DIR" || { echo "❌ Не могу перейти в директорию $PROJECT_DIR"; exit 1; }
+
+# Создаем виртуальное окружение
+echo "🛠️ Создаем виртуальное окружение..."
+if ! python3 -m venv "$VENV_PATH"; then
+    echo "❌ Ошибка при создании виртуального окружения!"
+    echo "🔧 Проверьте права доступа в $PROJECT_DIR"
+    exit 1
+fi
+
+# Проверяем, существует ли виртуальное окружение
+if [ ! -d "$VENV_PATH" ]; then
+    echo "❌ Виртуальное окружение не создано!"
+    echo "🔧 Проверьте свободное место на диске и права доступа"
+    exit 1
+fi
+
+# Активируем виртуальное окружение
+source "$VENV_PATH/bin/activate" || { echo "❌ Не могу активировать виртуальное окружение"; exit 1; }
+
+# Обновляем pip
+echo "🔧 Обновляем pip..."
+pip install --upgrade pip || { echo "❌ Ошибка при обновлении pip"; exit 1; }
 
 # Устанавливаем зависимости
 echo "📦 Устанавливаем зависимости..."
-pip install fastapi uvicorn torch ruaccent num2words
+pip install fastapi uvicorn torch ruaccent num2words || { echo "❌ Ошибка при установке зависимостей"; exit 1; }
 
-echo "✅ Окружение '$ENV_NAME' готово"
+echo "✅ Виртуальное окружение успешно создано в $VENV_PATH"
 
 # Создаем systemd сервис
 echo "⚙️ Настраиваем systemd сервис..."
-sudo tee $SERVICE_PATH > /dev/null <<EOL
+SERVICE_NAME="silero_rest_service"
+SERVICE_PATH="/etc/systemd/system/$SERVICE_NAME.service"
+
+sudo tee "$SERVICE_PATH" > /dev/null <<EOL
 [Unit]
 Description=Silero REST Service
 After=network.target
 
 [Service]
 Type=simple
-User=$(whoami)
+User=$CURRENT_USER
 WorkingDirectory=$PROJECT_DIR
-ExecStart=$CONDA_PATH/envs/$ENV_NAME/bin/uvicorn silero_rest_service:app --host 0.0.0.0 --port 5010
+ExecStart=$VENV_PATH/bin/uvicorn silero_rest_service:app --host 0.0.0.0 --port 5010
 Restart=always
 
 [Install]
 WantedBy=multi-user.target
 EOL
 
+# Проверяем, успешно ли создан сервис
+if [ ! -f "$SERVICE_PATH" ]; then
+    echo "❌ Не удалось создать файл сервиса systemd!"
+    exit 1
+fi
+
 # Перезагружаем systemd
 sudo systemctl daemon-reload
-sudo systemctl enable $SERVICE_NAME
-sudo systemctl start $SERVICE_NAME
+sudo systemctl enable "$SERVICE_NAME"
+sudo systemctl start "$SERVICE_NAME"
 
-echo "🎉 Сервис $SERVICE_NAME успешно запущен!"
+# Проверяем статус сервиса
+if systemctl is-active --quiet "$SERVICE_NAME"; then
+    echo "🎉 Сервис $SERVICE_NAME успешно запущен!"
+else
+    echo "⚠️ Сервис $SERVICE_NAME установлен, но не запущен"
+    echo "🔧 Проверьте логи с помощью: journalctl -u $SERVICE_NAME -n 20"
+fi
